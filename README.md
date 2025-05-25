@@ -110,7 +110,8 @@ if (now < start_timestamp) {
 
 ---
 
-## 🧠 Designed by Rosie 2025
+## 🧠 Designed by Rosie 
+2025
 
 Created to support **accurate, trustless time-based coordination** across Bitcoin — from DeFi lending to programmable unlocks.
 
