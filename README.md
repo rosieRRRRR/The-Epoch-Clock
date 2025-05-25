@@ -1,6 +1,6 @@
 # 100 Year Epoch Clock
 
-This repository defines a **100-year decentralised UTC epoch clock** for Bitcoin-native smart contracts.
+This repository defines a **100-year decentralized UTC epoch clock** for Bitcoin-native smart contracts.
 
 * **timer\_id**: `utc-epoch-100yr`
 * **start\_timestamp**: 2025-05-25 00:00:00 UTC (Unix: `1748400000`)
