@@ -1,6 +1,6 @@
 # Epoch Clock for Bitcoin
 
-**A deterministic, decentralised time standard for on-chain contract enforcement**
+**A deterministic, decentralized time standard for on-chain contract enforcement**
 
 ---
 
@@ -18,7 +18,7 @@
 
 The 100 Year Epoch Clock introduces a shared, immutable concept of time for Bitcoin-native contracts.
 
-By defining a fixed start point and deterministic duration logic, it enables Bitcoin scripts, PSBTs, and clients to coordinate contract expiry, vesting, unlocks, and enforcement — all without oracles, servers, or off-chain dependencies.
+By defining a fixed start point and deterministic duration logic, it enables Bitcoin scripts, PSBTs, and clients to coordinate contract expiry, vesting, unlocks, and enforcement - all without oracles, servers, or off-chain dependencies.
 
 The result is reliable time-based logic on Bitcoin, enforced purely by the chain.
 
@@ -26,9 +26,10 @@ The result is reliable time-based logic on Bitcoin, enforced purely by the chain
 
 ## How It Works
 
-The Epoch Clock begins automatically when the defining transaction (such as an inscription or canonical anchor) is confirmed in a block. Its `start_timestamp` is set to the **block header timestamp (`nTime`)** of that block.
+The Epoch Clock begins automatically when the defining transaction is confirmed in a block. Its start_timestamp is set to the block header timestamp (nTime) of that block.
+This defining transaction could be a canonical anchor, PSBT, contract deployment, or inscription - any on-chain event used to trigger time-based logic.
 
-No user interaction or activation is required — the chain itself provides the start signal.
+No user interaction or activation is required - the chain itself provides the start signal.
 
 This `start_timestamp` is a known UTC value, directly accessible via RPC or public block explorers. All expiry logic is calculated as:
 
@@ -252,7 +253,7 @@ While `nLockTime` and `OP_CLTV` are widely used, their implementations vary. The
 ## Trust Assumptions and Determinism
 
 - The `start_timestamp` is defined by the **Unix timestamp (`nTime`)** in the block that confirms a specific, pre-agreed transaction (such as an inscription).
-- Clients referencing the same `timer_id` must validate the source — e.g. by resolving the Inscription ID `96733659` or a known TXID — to derive the correct start time.
+- Clients referencing the same `timer_id` must validate the source - e.g. by resolving the Inscription ID `96733659` or a known TXID - to derive the correct start time.
 - Each `timer_id` must map to exactly one immutable transaction. This prevents malicious redefinition or `timer_id` collisions and ensures all systems reference a single, deterministic clock origin.
 
 To be deterministic and trustless:
@@ -300,6 +301,6 @@ Use epoch-based logic in pre-signed spend trees:
 ## Author
 
 Designed by Rosie, 2025  
-This is not a protocol change. It is a coordination layer — opt-in, immutable, and enforced by the chain.
+This is not a consensus-layer protocol change. It is a coordination layer - opt-in, immutable, and enforced by the chain.
 
 
