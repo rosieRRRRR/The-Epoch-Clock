@@ -1,0 +1,8 @@
+{
+  "type": "epoch_clock",
+  "timer_id": "utc-epoch-100yr",
+  "start_timestamp": 1748400000,
+  "duration_seconds": 3153600000,
+  "format": "unix_seconds",
+  "notes": "This is a 100-year decentralized UTC time reference beginning on 2025-05-25 00:00:00 UTC. It is not connected to any oracle or server, and can be used to anchor start and expiry times for contracts including loans, auctions, escrows, or scheduled events. Inscribed by Rosie for trustless time coordination in Bitcoin-native DeFi."
+}
