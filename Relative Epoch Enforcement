@@ -1,0 +1,123 @@
+## ⏳ **Relative Epoch Enforcement (Per-UTXO Countdown Module)**
+
+**Relative Epoch Enforcement** allows contracts to change behaviour based on how much time has passed since a committed start timestamp — typically the confirmation time of the UTXO.
+
+This logic is enforced off-chain via **BitVM circuits** or **PSBT selection**, using:
+
+* A committed `start_timestamp` (from contract creation)
+* A verified `current_timestamp` (from block header or `nLockTime`)
+
+```text
+epoch = floor((current_timestamp - start_timestamp) / interval)
+```
+
+Contracts can then enforce different outcomes per epoch:
+
+* Epoch 0: allow repayment
+* Epoch ≥1: allow liquidation
+
+> No oracles. No opcode change. Just consensus timestamps, config commitment, and predictable logic.
+
+---
+
+### 🔧 Epoch Formula
+
+```text
+epoch = floor((current_timestamp - start_timestamp) / epoch_interval_seconds)
+```
+
+* `current_timestamp`: block timestamp at spend time (must be verified in logic)
+* `start_timestamp`: committed at UTXO creation or via hash-bound config
+* `epoch_interval_seconds`: fixed epoch size (e.g. 604800 = 7 days)
+
+---
+
+### 📁 Example Config
+
+```json
+{
+  "start_timestamp": 2000000000,
+  "epoch_interval_seconds": 604800
+}
+```
+
+Generate commitment:
+
+```text
+CONFIG_HASH = sha256(config)
+```
+
+The `CONFIG_HASH` must be committed **within the circuit root**, spend script, or PSBT metadata. It must be **explicitly validated** before epoch logic executes.
+
+---
+
+### 🧠 BitVM Logic (Minimum Sketch)
+
+```text
+assert sha256(config_input) == CONFIG_HASH
+
+timestamp = supplied block time
+epoch = (timestamp - config_input.start_timestamp) // config_input.epoch_interval_seconds
+
+if epoch == 0:
+    enforce sig_borrower && sig_lender
+else:
+    enforce sig_lender only
+```
+
+Each conditional branch maps to a **committed circuit path hash**. The prover must supply a valid trace matching the computed epoch and signature logic.
+
+---
+
+### 🔐 Enforceable Spend Paths
+
+| Epoch  | Allowed Path | Signature Requirement        | Commitment Mechanism       |
+| ------ | ------------ | ---------------------------- | -------------------------- |
+| `== 0` | `repay`      | `sig_borrower && sig_lender` | BitVM branch hash / PSBT 0 |
+| `>= 1` | `liquidate`  | `sig_lender only`            | BitVM branch hash / PSBT 1 |
+
+Each path must commit to its logic hash under the same config. No dynamic reinterpretation is allowed.
+
+> 🔄 *This structure is easily extensible — you can support multiple epochs and roles (e.g. Epoch 2: delegate recovery, Epoch 3: charity fallback).*
+
+---
+
+### 🛠 One-Way Delay (Static Unlock via CLTV)
+
+```btc
+<start_timestamp + interval> OP_CHECKLOCKTIMEVERIFY OP_DROP <pubkey> OP_CHECKSIG
+```
+
+* Allows basic time delay enforcement
+* Enforced at consensus level
+* **No epoch logic**, **no branching**
+
+Use this for fixed unlock conditions only.
+
+---
+
+### 📊 Enforcement Models Summary
+
+| Enforcement Type                     | Trustless?     | Notes                                                              |
+| ------------------------------------ | -------------- | ------------------------------------------------------------------ |
+| **BitVM (config committed)**         | ✅              | Verifiable execution trace required; config hash bound to logic    |
+| **CLTV (hardcoded timestamp)**       | ✅              | Fully enforced by Bitcoin consensus                                |
+| **PSBT (off-chain start timestamp)** | 🟡 Coordinated | Requires mutual agreement and coordination, not enforced in script |
+
+> **Note:** To tolerate miner timestamp drift (\~2 hours), epoch intervals should be on the order of **days or longer**.
+
+---
+
+### 📌 Naming and Scope
+
+This is not a clock. It is a **per-contract relative expiry primitive**, suitable for:
+
+* Loan repayment windows
+* Vesting cliffs
+* Trustless unlocks
+* BitVM-verified time branching
+* Coordinated recovery logic over time
+
+It enables deterministic, time-based branching on Bitcoin — without oracles, new opcodes, or central coordination.
+
+---
