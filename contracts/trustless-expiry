@@ -142,6 +142,8 @@ Auditors can:
 
 ### Testing Invitation
 
+⚠️ Mainnet only. All tests are real Bitcoin transactions. You are responsible for your own transaction fees. No reimbursements will be provided.
+
 Review, verify, and experiment:
 - Rebuild contract from config and keys
 - Validate timing with `verify_duration.py`
@@ -222,3 +224,4 @@ Create `/deployment/expiry_proof.md` with:
 - Script SHA256
 - Mempool.space link
  
+Reminder: This contract runs on Bitcoin mainnet. Fund and interact at your own discretion. No compensation is offered for costs incurred.
