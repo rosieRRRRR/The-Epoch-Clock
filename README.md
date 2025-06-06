@@ -116,6 +116,12 @@ Each of the following is enforceable on Bitcoin Layer 1 today using standard Scr
 | Staking Unlocks             | Stake becomes withdrawable after defined time                  |
 | Multi-Epoch Vesting         | Tranches unlock at predefined intervals                        |
 
+
+▶️ [Trustless Expiry Contract (Mainnet, Experimental)](https://github.com/rosieRRRRR/The-Epoch-Clock/blob/main/contracts/trustless-expiry)
+Implements time-based spend logic using a real on-chain Epoch Clock config (inscription ID: 96733659).
+Not audited. For review and experimentation only.
+
+
 Implemented using:
 
 - `OP_CHECKLOCKTIMEVERIFY`
