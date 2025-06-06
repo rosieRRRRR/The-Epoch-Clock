@@ -1,0 +1,224 @@
+## Epoch Clock Trustless Bitcoin Contract
+
+⚠️ Not audited. This contract has not yet been tested in production. Use at your own risk.
+
+🟢 This contract is designed to operate on Bitcoin mainnet, using a real inscription (ID: 96733659) as its shared configuration anchor.
+
+**Trustless time. Native enforcement. Zero dependencies.**
+
+Time-based Bitcoin ownership. Enforced on Layer 1. No opcodes. No trust. No oracles.
+
+It enables modular, reusable time-based logic governed by a shared on-chain configuration (the Epoch Clock), while enforcing role transitions without relying on external systems or mempool race conditions.
+
+
+### Purpose
+
+This contract:
+
+- Enforces time-locked transfer of spend rights between two parties.
+- Uses a shared Epoch Clock config (Ordinal inscription 96733659) to define the duration.
+- Enforces expiry using Bitcoin consensus rules.
+- Guarantees Party A cannot claim funds after expiry.
+- Proves timing and logic on-chain without oracles.
+- Enables template-style logic reuse without needing OP_CAT.
+- Trustlessness depends entirely on Bitcoin consensus. This contract assumes no mempool visibility, no oracle access, and no inscription parsing at execution.
+
+> All contract logic is enforced by Bitcoin consensus. No state is fetched or inferred from inscriptions or external data. Verification is offline and deterministic.
+
+> By standardising time logic around a shared config, users can build interoperable protocols such as vault expiries, commitment windows, or lending durations without needing a new opcode or runtime engine.
+
+Note: This contract does not validate or require the Epoch Clock config at execution time. The config is used to derive expiry and to prove post-hoc consistency.
+
+
+### Parameters
+
+- Contract Address: `[INSERT_P2WSH_ADDRESS_HERE]`
+- Expiry Timestamp: `[INSERT_EXPIRY_TIMESTAMP]` (e.g. 1749187958)
+- Duration: 4 hours (14400 seconds)
+- Config Source: Ordinal inscription 96733659 (confirmed in block [INSERT_BLOCK_HEIGHT], timestamp [INSERT_TIMESTAMP])
+- Config SHA256: `b7d9b1c13bd1c075343d2ab1e8f5078b3c23dbf43fc635ee530cc697e5e016fd`
+- Expiry Time: `start_time + duration` (start = funding TX confirmation)
+
+Epoch Clock config snippet:
+```json
+{
+  "protocol": "epochclock",
+  "genesis_timestamp": 1710000000,
+  "epoch_interval_seconds": 14400,
+  "_id": "epochclock.v0.1",
+  "_script_template_sha256": "[INSERT_SCRIPT_TEMPLATE_SHA]"
+}
+```
+
+> The config is not used in the script. It is a public reference that anyone can verify matches the hardcoded expiry.
+
+To compute `_script_template_sha256`, hash the raw text of the template file using SHA256.
+
+To verify the config SHA matches inscription 96733659, retrieve the inscription payload and hash it using SHA256.
+
+Note: 'epoch_interval_seconds' in config corresponds to 'duration' used in redeem script construction.
+
+Example config file: `/configs/epochclock-4hr.json`
+
+The `verify_duration.py` script is located at `tools/verify_duration.py` and confirms expiry timestamp matches the config.
+
+Multiple users can deploy identical contracts by reusing a shared config. The only changing variables are keys and block anchor, making time logic modular and composable.
+
+
+### Contract Script (Redeem Script)
+
+```
+OP_IF
+  <PartyA_PUBKEY> OP_CHECKSIG
+OP_ELSE
+  <EXPIRY_TIMESTAMP> OP_CHECKLOCKTIMEVERIFY OP_DROP <PartyB_PUBKEY> OP_CHECKSIG
+OP_ENDIF
+```
+
+SHA256 of this redeem script must be published in `/deployment/funding_tx_info.json` for auditability.
+
+To compute the P2WSH address:
+```bash
+echo -n '<redeem_script_hex>' | xxd -r -p | sha256sum
+```
+
+SIGHASH recommendation:
+> Use SIGHASH_ALL | SIGHASH_ANYONECANPAY to safely coordinate multiple signers without locking extra inputs.
+
+Script template file: `/contracts/epoch-clock-4hr.cltv.txt`
+> Suggested naming pattern: `epochlock_[duration]s_[partyA_short]_[partyB_short].cltv.txt`
+
+
+### What This Script Enforces
+
+- Party A can claim only before expiry.
+- Party B can claim only after expiry.
+- Others cannot claim, even with replay or early broadcast.
+
+
+### Funding Transaction (TX0)
+
+Send BTC to the P2WSH address.
+
+> The OP_RETURN is optional but recommended for transparency and tooling support.
+
+Include OP_RETURN:
+```
+epochclock:96733659;interval:14400;sha256:b7d9b1c13bd1c075343d2ab1e8f5078b3c23dbf43fc635ee530cc697e5e016fd
+```
+
+Recommended format for OP_RETURN audit tags. This is not parsed by script and is ignored by nodes.
+
+> Standardised OP_RETURN tags allow external observers to identify and classify contracts based on Epoch Clock lineage, enabling meta-coordination layers on top of L1.
+
+
+### Claim Conditions
+
+#### Claim Before Expiry
+- Use IF path
+- Sign with Party A key
+- No locktime required
+
+#### Claim After Expiry
+- Use ELSE path
+- Sign with Party B key
+- Set `nLockTime = EXPIRY_TIMESTAMP`
+- Set inputs to `0xfffffffe`
+- ⚠️ Must wait until block time ≥ expiry, or the transaction will be rejected by the network.
+- Transactions must use SegWit-compatible signatures (SIGHASH_ALL | ANYONECANPAY) to prevent malleability and replay issues on CLTV-enforced paths.
+
+
+### Claim Enforcement Summary
+
+- Party A can spend before expiry.
+- Party B can spend after expiry with CLTV enforced.
+- Expiry is hardcoded into the script. The Epoch Clock config is used for consistency and reproducibility.
+
+Auditors can:
+- Verify redeem script matches logic.
+- Confirm expiry matches derived value.
+- Ensure SHA256 matches funded P2WSH.
+
+
+### Testing Invitation
+
+Review, verify, and experiment:
+- Rebuild contract from config and keys
+- Validate timing with `verify_duration.py`
+- Simulate both claim paths and confirm behaviour matches your expectations
+
+Everything needed to verify, rebuild, and use this contract is included. No part of the logic is hidden or implicit.
+
+This contract runs entirely on Bitcoin Layer 1. No servers. No watchers. No upgrades. Just math.
+
+
+### Testing Instructions
+
+#### Prerequisites
+- Bitcoin node access
+- Python 3
+- Sparrow Wallet
+
+#### Test Workflow
+
+1. **Verify Expiry Timestamp**
+```bash
+python3 tools/verify_duration.py --config epoch_clock_config.json --funding_txid <TX0_ID>
+```
+- Gets block time of TX0
+- Applies duration
+- Must match hardcoded expiry
+
+2. **Rebuild and Match Script**
+- Use same keys and expiry
+- Recreate redeem script
+- Hash must match deployed P2WSH
+
+3. **Simulate and Audit Claims**
+- Party A spends before expiry via IF path
+- Party B spends after expiry via ELSE path (with nLockTime and sequence)
+- Validate redeem script SHA and config SHA from canonical sources
+
+4. **Canonical Test Vector**
+Use this reference contract to test tooling and confirmation behaviour.
+
+- Party A pubkey: 0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798
+- Party B pubkey: 02c6047f9441ed7d6d3045406e95c07cd85a3c2b8b77e1ac2c8e75e2d0c01aef10
+- Funding TX block: 899620 (timestamp: 2025-06-03 18:07:35 UTC)
+- Duration: 14400
+- Derived expiry: 1749187958
+- P2WSH: bc1q[...]
+- Script SHA256: [INSERT_CANONICAL_SCRIPT_SHA256]
+
+
+### Sparrow Wallet Instructions
+
+1. **Setup**
+- Create wallets for each party
+- Export compressed public keys
+
+2. **Build Contract**
+- Insert keys and expiry into script template
+- Save to `/contracts/epoch-clock-4hr.cltv.txt`
+- Run verification script
+- Derive P2WSH from script hash
+
+3. **Import to Sparrow**
+- File > New Wallet > Custom Script
+- Paste redeem script
+
+4. **Fund Contract**
+- Send BTC to P2WSH
+- Include OP_RETURN metadata for audit trail as a separate output
+
+5. **Claim**
+- Party A: sign and broadcast before expiry
+- Party B: wait, set locktime and sequence, sign and broadcast
+
+6. **Audit Record**
+Create `/deployment/expiry_proof.md` with:
+- TXID and block metadata
+- Config values
+- Script SHA256
+- Mempool.space link
+ 
